@@ -1,3 +1,7 @@
+'use client';
+
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-400 to-orange-400 text-white p-6 text-center">
@@ -6,12 +10,12 @@ export default function Home() {
         <p className="mb-6 text-sm text-gray-700">
           Send me anonymous messages 🔥
         </p>
-        <a
+        <Link
           href="/v/vedant"
           className="inline-block bg-black text-white py-3 px-6 rounded-full hover:bg-gray-900 transition"
         >
           Tap to Message Me
-        </a>
+        </Link>
       </div>
     </main>
   );
