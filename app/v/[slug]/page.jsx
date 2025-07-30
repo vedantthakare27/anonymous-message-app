@@ -2,14 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
 
 export default function MessagePage() {
   const params = useParams();
-  const slug = (params?.slug ?? "").toLowerCase().trim();
+  const slug = (params?.slug || "").toLowerCase().trim();
 
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
@@ -29,7 +36,6 @@ export default function MessagePage() {
   ];
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
-  // Rotate placeholder every 2 seconds
   useEffect(() => {
     setVisitorCount(Math.floor(Math.random() * 300 + 150));
 
@@ -44,45 +50,47 @@ export default function MessagePage() {
     if (!message.trim()) return;
     setLoading(true);
 
-    const { data: users, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("username", slug);
+    try {
+      const q = query(
+        collection(db, "users"),
+        where("username", "==", slug)
+      );
+      const querySnapshot = await getDocs(q);
 
-    if (error || !users || users.length === 0) {
-      alert("User not found");
+      if (querySnapshot.empty) {
+        alert("User not found");
+        setLoading(false);
+        return;
+      }
+
+      const userDoc = querySnapshot.docs[0];
+      const userId = userDoc.id;
+
+      await addDoc(collection(db, "messages"), {
+        to_user_id: userId,
+        body: message,
+      });
+
+      setMessage("");
+      setSent(true);
       setLoading(false);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("messages").insert({
-      to_user_id: users[0].id,
-      body: message,
-    });
-
-    if (insertError) {
-      alert("Failed to send message: " + insertError.message);
+    } catch (err) {
+      alert("Failed to send message");
+      console.error(err);
       setLoading(false);
-      return;
     }
-
-    setMessage("");
-    setSent(true);
-    setLoading(false);
   };
 
   return (
     <main className="min-h-screen flex flex-col justify-between bg-gradient-to-br from-pink-400 to-orange-400 text-white px-4 py-10">
       {sent && <Confetti width={width} height={height} numberOfPieces={250} recycle={false} />}
 
-      {/* Message card */}
       <motion.div
         className="w-full max-w-md mx-auto bg-white p-6 rounded-3xl shadow-2xl"
         initial={{ opacity: 0, scale: 0.95, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Header */}
         <div className="flex items-center mb-6">
           <div className="bg-gray-300 w-10 h-10 rounded-full mr-3 flex items-center justify-center font-bold text-gray-700">
             {slug[0]?.toUpperCase()}
@@ -95,7 +103,6 @@ export default function MessagePage() {
           </div>
         </div>
 
-        {/* Message form / sent */}
         <AnimatePresence mode="wait">
           {sent ? (
             <motion.div
@@ -123,7 +130,6 @@ export default function MessagePage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Textarea with animated placeholder */}
               <div className="relative">
                 <textarea
                   className="w-full border border-gray-300 p-4 rounded-xl mb-4 h-28 text-black resize-none placeholder-transparent text-sm sm:text-base"
@@ -160,7 +166,6 @@ export default function MessagePage() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Footer */}
       <footer className="text-center mt-10 text-sm text-white opacity-90 space-y-2 px-4">
         <div>🔒 anonymous q&a</div>
         <div className="text-yellow-200">
